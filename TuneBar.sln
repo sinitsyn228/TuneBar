@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{83789611-8193-4947-898A-6EC19F3D1447}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuneBar", "src\TuneBar\TuneBar.csproj", "{98CCD3E7-3F78-41B8-9335-65702D4664FE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuneBar.Widget", "src\TuneBar.Widget\TuneBar.Widget.csproj", "{CAC2BC80-5933-4827-9D5B-58B66581138C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TuneBar.Shared", "src\TuneBar.Shared\TuneBar.Shared.csproj", "{D158E391-EA5B-4055-8DC3-DFB8497A8AF5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{98CCD3E7-3F78-41B8-9335-65702D4664FE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{98CCD3E7-3F78-41B8-9335-65702D4664FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{98CCD3E7-3F78-41B8-9335-65702D4664FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{98CCD3E7-3F78-41B8-9335-65702D4664FE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CAC2BC80-5933-4827-9D5B-58B66581138C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CAC2BC80-5933-4827-9D5B-58B66581138C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CAC2BC80-5933-4827-9D5B-58B66581138C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CAC2BC80-5933-4827-9D5B-58B66581138C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D158E391-EA5B-4055-8DC3-DFB8497A8AF5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D158E391-EA5B-4055-8DC3-DFB8497A8AF5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D158E391-EA5B-4055-8DC3-DFB8497A8AF5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D158E391-EA5B-4055-8DC3-DFB8497A8AF5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{98CCD3E7-3F78-41B8-9335-65702D4664FE} = {83789611-8193-4947-898A-6EC19F3D1447}
+		{CAC2BC80-5933-4827-9D5B-58B66581138C} = {83789611-8193-4947-898A-6EC19F3D1447}
+		{D158E391-EA5B-4055-8DC3-DFB8497A8AF5} = {83789611-8193-4947-898A-6EC19F3D1447}
+	EndGlobalSection
+EndGlobal
