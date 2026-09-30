@@ -18,6 +18,7 @@ internal sealed class MainMenu
                 new MenuItem('3', "Положение", () => PositionMenu.Describe(settings), OpenPositionMenu),
                 new MenuItem('4', "Трек и артист", () => OnOff(settings.ShowTrackText), ToggleTrackText),
                 new MenuItem('5', "Место текста", () => TextPlacementName(settings.TextPlacement), ToggleTextPlacement),
+                new MenuItem('6', "Монитор", () => MonitorName(settings.Monitor), SwitchMonitor),
                 MenuItem.Back('0', "Выход"),
             ],
             WidgetInstance.IsInstalled ? null : WidgetMissing).Run();
@@ -27,6 +28,13 @@ internal sealed class MainMenu
 
     private static string TextPlacementName(TextPlacement placement) =>
         placement == TextPlacement.Left ? "слева от кнопок" : "справа от кнопок";
+
+    private static string MonitorName(WidgetMonitor monitor) => monitor switch
+    {
+        WidgetMonitor.Secondary => "дополнительный",
+        WidgetMonitor.All => "все",
+        _ => "основной",
+    };
 
     private string? OpenPositionMenu()
     {
@@ -44,6 +52,18 @@ internal sealed class MainMenu
     private string? ToggleTextPlacement()
     {
         settings.TextPlacement = settings.TextPlacement == TextPlacement.Left ? TextPlacement.Right : TextPlacement.Left;
+        settings.Save();
+        return null;
+    }
+
+    private string? SwitchMonitor()
+    {
+        settings.Monitor = settings.Monitor switch
+        {
+            WidgetMonitor.Primary => WidgetMonitor.Secondary,
+            WidgetMonitor.Secondary => WidgetMonitor.All,
+            _ => WidgetMonitor.Primary,
+        };
         settings.Save();
         return null;
     }

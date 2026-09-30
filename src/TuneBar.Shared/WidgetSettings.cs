@@ -18,6 +18,13 @@ public enum TextPlacement
     Left,
 }
 
+public enum WidgetMonitor
+{
+    Primary,
+    Secondary,
+    All,
+}
+
 public sealed class WidgetSettings
 {
     private static readonly string FolderPath = Path.Combine(
@@ -39,6 +46,8 @@ public sealed class WidgetSettings
     public bool ShowTrackText { get; set; } = true;
 
     public TextPlacement TextPlacement { get; set; } = TextPlacement.Right;
+
+    public WidgetMonitor Monitor { get; set; } = WidgetMonitor.Primary;
 
     public static WidgetSettings Load()
     {

@@ -5,7 +5,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using TuneBar.Media;
-using TuneBar.Platform;
 using TuneBar.Shared;
 using TuneBar.Taskbar;
 
@@ -18,41 +17,35 @@ public partial class TaskbarWidget : Window
 
     private readonly MediaSessionService media;
     private readonly TaskbarDock dock;
-    private GlobalHotkeys? hotkeys;
+    private WidgetSettings settings;
 
     private TrackInfo? currentTrack;
 
-    public TaskbarWidget(MediaSessionService media)
+    public TaskbarWidget(MediaSessionService media, IntPtr taskbar, WidgetSettings settings)
     {
         InitializeComponent();
 
         this.media = media;
-        dock = new TaskbarDock(this);
+        this.settings = settings;
+        dock = new TaskbarDock(this, taskbar);
         dock.SuppressedChanged += UpdateVisibility;
-        dock.SettingsChanged += ApplySettings;
-        ApplySettings();
-
-        media.TrackChanged += track => Dispatcher.InvokeAsync(() => ShowTrack(track));
+        ApplySettings(settings);
     }
 
-    protected override async void OnSourceInitialized(EventArgs e)
+    public void ApplySettings(WidgetSettings newSettings)
+    {
+        settings = newSettings;
+        TrackTextPanel.Visibility = settings.ShowTrackText ? Visibility.Visible : Visibility.Collapsed;
+        PlaceTrackText(settings.TextPlacement);
+    }
+
+    public void Reposition() => dock.Reposition(settings);
+
+    protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        dock.Start();
-        RegisterHotkeys();
-        await media.StartAsync();
-    }
-
-    protected override void OnClosed(EventArgs e)
-    {
-        hotkeys?.Dispose();
-        base.OnClosed(e);
-    }
-
-    private void ApplySettings()
-    {
-        TrackTextPanel.Visibility = dock.Settings.ShowTrackText ? Visibility.Visible : Visibility.Collapsed;
-        PlaceTrackText(dock.Settings.TextPlacement);
+        dock.Attach();
+        Reposition();
     }
 
     private void PlaceTrackText(TextPlacement placement)
@@ -64,14 +57,7 @@ public partial class TaskbarWidget : Window
         TrackTextPanel.HorizontalAlignment = textOnLeft ? HorizontalAlignment.Right : HorizontalAlignment.Left;
     }
 
-    private void RegisterHotkeys()
-    {
-        hotkeys = new GlobalHotkeys(this);
-        hotkeys.Register(GlobalHotkeys.ModControl, GlobalHotkeys.KeyRight, () => _ = media.NextAsync());
-        hotkeys.Register(GlobalHotkeys.ModControl, GlobalHotkeys.KeyLeft, () => _ = media.PreviousAsync());
-    }
-
-    private void ShowTrack(TrackInfo? track)
+    public void ShowTrack(TrackInfo? track)
     {
         var coverChanged = !ReferenceEquals(track?.Cover, currentTrack?.Cover);
         currentTrack = track;

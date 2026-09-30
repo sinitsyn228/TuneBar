@@ -1,9 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Threading;
 using TuneBar.Native;
 using TuneBar.Shared;
 
@@ -11,62 +11,51 @@ namespace TuneBar.Taskbar;
 
 public sealed class TaskbarDock
 {
+    private const string PrimaryTaskbarClass = "Shell_TrayWnd";
+    private const string SecondaryTaskbarClass = "Shell_SecondaryTrayWnd";
+
     private readonly Window window;
-    private readonly DispatcherTimer timer;
-    private WidgetSettings settings = WidgetSettings.Load();
-    private DateTime settingsSavedUtc = WidgetSettings.LastSavedUtc;
+    private readonly IntPtr taskbar;
     private IntPtr handle;
 
-    public TaskbarDock(Window window)
+    public TaskbarDock(Window window, IntPtr taskbar)
     {
         this.window = window;
-        timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-        timer.Tick += (_, _) => Reposition();
+        this.taskbar = taskbar;
     }
 
     public bool IsSuppressed { get; private set; }
 
-    public WidgetSettings Settings => settings;
-
     public event Action? SuppressedChanged;
 
-    public event Action? SettingsChanged;
+    public static IReadOnlyList<IntPtr> FindTaskbars(WidgetMonitor monitor)
+    {
+        var primary = FindTopLevelWindows(PrimaryTaskbarClass);
+        var secondary = FindTopLevelWindows(SecondaryTaskbarClass);
 
-    public void Start()
+        if (monitor == WidgetMonitor.All)
+        {
+            primary.AddRange(secondary);
+            return primary;
+        }
+
+        return monitor == WidgetMonitor.Secondary && secondary.Count > 0 ? secondary : primary;
+    }
+
+    public void Attach()
     {
         handle = new WindowInteropHelper(window).Handle;
         MakeToolWindow();
-        Reposition();
-        timer.Start();
     }
 
-    private void MakeToolWindow()
+    public void Reposition(WidgetSettings settings)
     {
-        var style = (long)NativeMethods.GetWindowLongPtr(handle, NativeMethods.GwlExStyle);
-        style |= NativeMethods.WsExToolWindow | NativeMethods.WsExNoActivate;
-        NativeMethods.SetWindowLongPtr(handle, NativeMethods.GwlExStyle, new IntPtr(style));
-    }
-
-    private void ReloadSettingsIfChanged()
-    {
-        var savedUtc = WidgetSettings.LastSavedUtc;
-        if (savedUtc == settingsSavedUtc)
+        if (handle == IntPtr.Zero)
             return;
 
-        settingsSavedUtc = savedUtc;
-        settings = WidgetSettings.Load();
-        SettingsChanged?.Invoke();
-    }
-
-    private void Reposition()
-    {
-        ReloadSettingsIfChanged();
-
-        var taskbar = NativeMethods.FindWindow("Shell_TrayWnd", null);
-        var suppressed = taskbar == IntPtr.Zero
-            || !NativeMethods.GetWindowRect(taskbar, out var taskbarRect)
+        var suppressed = !NativeMethods.GetWindowRect(taskbar, out var taskbarRect)
             || taskbarRect.Width < taskbarRect.Height
-            || IsForegroundFullscreen();
+            || IsCoveredByFullscreenWindow();
 
         SetSuppressed(suppressed);
         if (suppressed)
@@ -80,32 +69,63 @@ public sealed class TaskbarDock
         NativeMethods.SetWindowPos(
             handle,
             NativeMethods.HwndTopmost,
-            CalculateLeft(taskbar, taskbarRect, widthPixels),
+            CalculateLeft(settings, taskbarRect, widthPixels),
             taskbarRect.Top,
             0,
             0,
             NativeMethods.SwpNoSize | NativeMethods.SwpNoActivate);
     }
 
-    private int CalculateLeft(IntPtr taskbar, NativeMethods.Rect taskbarRect, int widthPixels)
+    private static List<IntPtr> FindTopLevelWindows(string className)
+    {
+        var windows = new List<IntPtr>();
+        var current = IntPtr.Zero;
+        while ((current = NativeMethods.FindWindowEx(IntPtr.Zero, current, className, null)) != IntPtr.Zero)
+            windows.Add(current);
+
+        return windows;
+    }
+
+    private void MakeToolWindow()
+    {
+        var style = (long)NativeMethods.GetWindowLongPtr(handle, NativeMethods.GwlExStyle);
+        style |= NativeMethods.WsExToolWindow | NativeMethods.WsExNoActivate;
+        NativeMethods.SetWindowLongPtr(handle, NativeMethods.GwlExStyle, new IntPtr(style));
+    }
+
+    private int CalculateLeft(WidgetSettings settings, NativeMethods.Rect taskbarRect, int widthPixels)
     {
         var fromLeft = taskbarRect.Left + settings.OffsetPixels;
 
-        var anchorClass = settings.Position switch
+        switch (settings.Position)
         {
-            WidgetPosition.BeforeIcons => "ReBarWindow32",
-            WidgetPosition.Right => "TrayNotifyWnd",
-            _ => null,
-        };
-        if (anchorClass is null)
-            return fromLeft;
+            case WidgetPosition.BeforeIcons:
+                if (!TryGetChildRect(out var iconsRect, "ReBarWindow32", "WorkerW"))
+                    return fromLeft;
 
-        var anchor = NativeMethods.FindWindowEx(taskbar, IntPtr.Zero, anchorClass, null);
-        if (anchor == IntPtr.Zero || !NativeMethods.GetWindowRect(anchor, out var anchorRect))
-            return fromLeft;
+                var startButtonWidth = taskbarRect.Height;
+                return Math.Max(taskbarRect.Left, iconsRect.Left - startButtonWidth - widthPixels - settings.OffsetPixels);
 
-        var startButtonWidth = settings.Position == WidgetPosition.BeforeIcons ? taskbarRect.Height : 0;
-        return Math.Max(taskbarRect.Left, anchorRect.Left - startButtonWidth - widthPixels - settings.OffsetPixels);
+            case WidgetPosition.Right:
+                var rightEdge = TryGetChildRect(out var trayRect, "TrayNotifyWnd") ? trayRect.Left : taskbarRect.Right;
+                return Math.Max(taskbarRect.Left, rightEdge - widthPixels - settings.OffsetPixels);
+
+            default:
+                return fromLeft;
+        }
+    }
+
+    private bool TryGetChildRect(out NativeMethods.Rect rect, params string[] classNames)
+    {
+        foreach (var className in classNames)
+        {
+            var child = NativeMethods.FindWindowEx(taskbar, IntPtr.Zero, className, null);
+            if (child != IntPtr.Zero && NativeMethods.GetWindowRect(child, out rect))
+                return true;
+        }
+
+        rect = default;
+        return false;
     }
 
     private void SetSuppressed(bool suppressed)
@@ -117,7 +137,7 @@ public sealed class TaskbarDock
         SuppressedChanged?.Invoke();
     }
 
-    private static bool IsForegroundFullscreen()
+    private bool IsCoveredByFullscreenWindow()
     {
         var foreground = NativeMethods.GetForegroundWindow();
         if (foreground == IntPtr.Zero || foreground == NativeMethods.GetShellWindow() || IsDesktopWindow(foreground))
@@ -127,6 +147,9 @@ public sealed class TaskbarDock
             return false;
 
         var monitor = NativeMethods.MonitorFromWindow(foreground, NativeMethods.MonitorDefaultToNearest);
+        if (monitor != NativeMethods.MonitorFromWindow(taskbar, NativeMethods.MonitorDefaultToNearest))
+            return false;
+
         var info = new NativeMethods.MonitorInfo { Size = System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.MonitorInfo>() };
         if (!NativeMethods.GetMonitorInfo(monitor, ref info))
             return false;
@@ -142,6 +165,6 @@ public sealed class TaskbarDock
         var className = new StringBuilder(64);
         NativeMethods.GetClassName(hwnd, className, className.Capacity);
         var name = className.ToString();
-        return name is "WorkerW" or "Progman" or "Shell_TrayWnd";
+        return name is "WorkerW" or "Progman" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd";
     }
 }

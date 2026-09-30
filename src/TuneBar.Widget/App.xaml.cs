@@ -13,8 +13,9 @@ public partial class App : Application
     private EventWaitHandle? exitSignal;
     private RegisteredWaitHandle? exitSignalRegistration;
     private TrayIcon? trayIcon;
+    private WidgetHost? widgetHost;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
@@ -28,16 +29,17 @@ public partial class App : Application
         ListenForExitSignal();
         ApplyTheme();
 
-        var widget = new TaskbarWidget(new MediaSessionService());
-        widget.Show();
-
         trayIcon = new TrayIcon(Shutdown);
+
+        widgetHost = new WidgetHost(new MediaSessionService());
+        await widgetHost.StartAsync();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         exitSignalRegistration?.Unregister(null);
         exitSignal?.Dispose();
+        widgetHost?.Dispose();
         trayIcon?.Dispose();
         singleInstanceMutex?.Dispose();
         base.OnExit(e);
