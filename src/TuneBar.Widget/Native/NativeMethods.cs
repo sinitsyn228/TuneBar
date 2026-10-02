@@ -9,6 +9,11 @@ internal static class NativeMethods
     public const int GwlExStyle = -20;
     public const long WsExToolWindow = 0x00000080;
     public const long WsExNoActivate = 0x08000000;
+    public const long WsExTransparent = 0x00000020;
+
+    public const uint GwHwndPrev = 3;
+
+    public const int DwmwaCloaked = 14;
 
     public const uint SwpNoSize = 0x0001;
     public const uint SwpNoActivate = 0x0010;
@@ -74,6 +79,23 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern int GetClassName(IntPtr hwnd, StringBuilder className, int maxCount);
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetWindow(IntPtr hwnd, uint command);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsWindowVisible(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsIconic(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out int value, int size);
 
     [DllImport("user32.dll")]
     public static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);

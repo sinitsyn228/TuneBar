@@ -55,7 +55,9 @@ public sealed class TaskbarDock
 
         var suppressed = !NativeMethods.GetWindowRect(taskbar, out var taskbarRect)
             || taskbarRect.Width < taskbarRect.Height
-            || IsCoveredByFullscreenWindow();
+            || IsTaskbarHidden(taskbarRect)
+            || IsCoveredByFullscreenWindow()
+            || IsCoveredByWindowAbove(taskbarRect);
 
         SetSuppressed(suppressed);
         if (suppressed)
@@ -158,6 +160,68 @@ public sealed class TaskbarDock
             && windowRect.Top <= info.Monitor.Top
             && windowRect.Right >= info.Monitor.Right
             && windowRect.Bottom >= info.Monitor.Bottom;
+    }
+
+    private bool IsTaskbarHidden(NativeMethods.Rect taskbarRect)
+    {
+        if (!NativeMethods.IsWindowVisible(taskbar))
+            return true;
+
+        if (!TryGetMonitorRect(taskbar, out var monitorRect))
+            return false;
+
+        var visibleHeight = Math.Min(taskbarRect.Bottom, monitorRect.Bottom) - Math.Max(taskbarRect.Top, monitorRect.Top);
+        return visibleHeight < taskbarRect.Height / 2;
+    }
+
+    private bool IsCoveredByWindowAbove(NativeMethods.Rect taskbarRect)
+    {
+        var ownProcessId = (uint)Environment.ProcessId;
+        var current = NativeMethods.GetWindow(taskbar, NativeMethods.GwHwndPrev);
+
+        for (; current != IntPtr.Zero; current = NativeMethods.GetWindow(current, NativeMethods.GwHwndPrev))
+        {
+            if (!IsOpaqueVisibleWindow(current, ownProcessId))
+                continue;
+
+            if (NativeMethods.GetWindowRect(current, out var rect) && Covers(rect, taskbarRect))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsOpaqueVisibleWindow(IntPtr hwnd, uint ownProcessId)
+    {
+        if (!NativeMethods.IsWindowVisible(hwnd) || NativeMethods.IsIconic(hwnd))
+            return false;
+
+        NativeMethods.GetWindowThreadProcessId(hwnd, out var processId);
+        if (processId == ownProcessId)
+            return false;
+
+        var exStyle = (long)NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GwlExStyle);
+        if ((exStyle & NativeMethods.WsExTransparent) != 0)
+            return false;
+
+        return NativeMethods.DwmGetWindowAttribute(hwnd, NativeMethods.DwmwaCloaked, out int cloaked, sizeof(int)) != 0 || cloaked == 0;
+    }
+
+    private static bool Covers(NativeMethods.Rect outer, NativeMethods.Rect inner)
+    {
+        return outer.Left <= inner.Left
+            && outer.Top <= inner.Top
+            && outer.Right >= inner.Right
+            && outer.Bottom >= inner.Bottom;
+    }
+
+    private static bool TryGetMonitorRect(IntPtr hwnd, out NativeMethods.Rect rect)
+    {
+        var monitor = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MonitorDefaultToNearest);
+        var info = new NativeMethods.MonitorInfo { Size = System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.MonitorInfo>() };
+        var found = NativeMethods.GetMonitorInfo(monitor, ref info);
+        rect = info.Monitor;
+        return found;
     }
 
     private static bool IsDesktopWindow(IntPtr hwnd)
